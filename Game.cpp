@@ -1,176 +1,120 @@
 #include "Game.h"
-#include <conio.h>
-#include <windows.h>
-#include <time.h> 
-CGame::CGame()
-{
-	createTanks();
-	score=0;
-	for (tankIterator=tanks.begin();tankIterator!=tanks.end();tankIterator++)  
- 	{
- 	int x,y;
-	tankIterator->lookAt(4,x,y);
-    	drawEngine.putTank(x,y,tankIterator->getDirection(),tankIterator->IsPlayer());	
+
+Game::Game(int maxScore) :factory(), tanks(), bullets(), _maxScore(maxScore){
+	notGameEnd = true;
+	score = 0;
+	tanks.push_back(factory.getPlayerTank());
+	for (int i = 0; i < maxScore; ++i){
+		tanks.push_back(factory.getEnemyTank(factory.getRandomLocation()));
 	}
+	for (int i = 0; i < 25 - _maxScore; ++i){
+		walls.push_back(factory.getWall(factory.getRandomLocation()));
+
+	walls.push_back(factory.getWall({ 9, 9 }));
+	walls.push_back(factory.getWall({ 9, 10 }));
+	walls.push_back(factory.getWall({ 9, 11 }));
+	walls.push_back(factory.getWall({ 10, 9 }));
+	walls.push_back(factory.getWall({ 10, 11 }));
+
+	gold = factory.getGold();
+	}
+
 }
-void CGame::run()
-{	
+void Game::run() {
 	lastTime = 0;
 	startTime = clock();
-	while (1)
+	while (notGameEnd)
 	{
 		gameUpdate();
 	}
 }
-void CGame::gameUpdate()
-{
+
+void Game::gameUpdate(){
+	Location location;
+	Location nullLoc = { 0, 0 };
 	double currentTime = clock() - lastTime;
-	if (currentTime < 300)
+	if (currentTime < 250)
 		return;
 	lastTime = clock();
-	drawEngine.printInfo(score,tanks[0].isAlive(),lastTime);
-	if(!bullets.empty())	
-		{
-		for (bulletIterator=bullets.begin();bulletIterator!=bullets.end();)
-        		bulletFlight();
-        		if (!tanks[0].isAlive()) gameOver();
+	if (!bullets.empty()){
+		for (auto it = bullets.begin(); it != bullets.end();){
+			location=(*it)->act();
+			if (location != nullLoc){
+				findTarget(location);
+				factory.getDrawEngine()->setCharAt((*it)->getLocation(), ' ');
+				it = bullets.erase(it);
+			}
+			else ++it;
 		}
-	for (tankIterator=tanks.begin();tankIterator!=tanks.end();tankIterator++)  
-		if(tankIterator->isAlive()!=0)
-	    {
-			if (tankIterator->IsPlayer())
-			playerTurn();
-			else 
-			enemyTurn();
-		}	
+	}
+	for (unsigned i =0; i< tanks.size();++i){
+		location=tanks[i]->act();
+		if (location != nullLoc)
+		if (factory.getDrawEngine()->getCharAt(location) == ' ')
+			bullets.push_back(factory.getBullet(location, tanks[i]->getDirection()));
+		else findTarget(location);
+	}
+	if (score == _maxScore){
+		endGame(1);
+	}
+	factory.getDrawEngine()->printInfo(score, tanks[0]->getLives(), currentTime);
 }
-void CGame::gameOver()
- {
- 	system("cls");
-	std::cout<<"                GAME OVER"<<std::endl;
-	exit(0);
-}
-void CGame::victory()
- {
- 	system("cls");
-	std::cout<<"                 VICTORY"<<std::endl;
-	exit(0);
- }
-void CGame::createTanks()
- {
- 	CTank ptank(10,13,2,1);
- 	tanks.push_back(ptank);
- 	CTank tank1(1+rand()%3,1+rand()%3,1,0);
- 	tanks.push_back(tank1);
- 	CTank tank2(3+rand()%3,3+rand()%6,2,0);
- 	tanks.push_back(tank2);
- 	CTank tank3(5+rand()%3,9+rand()%3,3,0);
-	tanks.push_back(tank3);
- 	CTank tank4(1+rand()%3,5+rand()%6,0,0);
- 	tanks.push_back(tank4);
-	CTank tank5(3+rand()%3,9+rand()%9,1,0);
- 	tanks.push_back(tank5);
- }
-void CGame::playerTurn()
- {
-    char act;
-    int ch;	
-    if ( kbhit() )
-    {
-        act= getch();
-        ch = static_cast<int>(act);
-        if (ch == 75)
-            tankMove(0) ;
-        else if (ch == 77)
-      	    tankMove(1) ;
-   	    else if (ch == 72)
-        	tankMove(2) ;
-	    else if (ch == 80)
-            tankMove(3) ; 
- 	    if (act==' ')
-	 	   tankFire();
+
+void Game::findTarget(Location location){
+	char c = factory.getDrawEngine()->getCharAt(location);
+	if (c == (char)2) return;
+	if (c == (char)1){
+		unsigned i = 0;
+		for (; i < walls.size(); ++i){
+			Location target = walls[i]->getLocation();
+			if (location == target)
+				break;
+		}
+		walls[i]->getHit();
+		if (walls[i]->getLives() == 0){
+			factory.getDrawEngine()->setCharAt(location, ' ');
+			walls.erase(walls.begin() + i);
+		}
+		return;
+	}
+	else if (c == '*'){
+		auto it = std::find_if(bullets.begin(), bullets.end(), [location](std::shared_ptr<GameObject> object){
+			Location target = object->getLocation();
+			return location == target;});
+		if (it != bullets.end()){
+			bullets.erase(it);
+			factory.getDrawEngine()->setCharAt(location, ' ');
+		}
+	}
+	else if (c == (char)3){
+		endGame(0);
+	}
+	else {
+		unsigned i = 0;
+		for (; i < tanks.size(); ++i){
+			Location target = tanks[i]->getLocation();
+			if (location == target)
+				break;
+		}
+		tanks[i]->getHit();
+		if (tanks[i]->getLives() == 0){
+			if (i == 0) endGame(0);
+			else {
+				factory.getDrawEngine()->setCharAt(location, ' ');
+				tanks.erase(tanks.begin() + i);
+				++score;
+			}
+		}
+		return;
 	}
 }
-void CGame ::enemyTurn ()
-	{
-	int chanse;	
-	int direct;	
-	direct=rand()%4;
-	tankMove(direct);
-   	chanse=rand()%4;
-    if(!chanse)
-	    tankFire();
+
+void Game::endGame(bool status){
+	notGameEnd = false;
+	std::string message;
+	if (status == 1)
+		 message = "                 VICTORY";
+	else message = "                GAME OVER";
+	system("cls");
+	std::cout << message << std::endl;
 }
-void CGame ::tankMove(int direction)
- {
- 	int x,y;
- 	tankIterator->lookAt(direction,x,y);
- 	if (drawEngine.IsEmptyAt(x,y))
-	{
-		tankIterator->lookAt(4,x,y);
-		drawEngine.clearAt(x,y);
-		tankIterator->lookAt(direction,x,y);
-		tankIterator->moveTo(direction);		
-		drawEngine.putTank(x,y,tankIterator->getDirection(),tankIterator->IsPlayer());
-		}
-	else tankIterator->setDirection(direction);
- }
-void CGame ::tankFire()
- {
- 	int x,y;
- 	tankIterator->lookAt(tankIterator->getDirection(),x,y);
-	if (drawEngine.IsEmptyAt(x,y))
-	{
-		drawEngine.putBullet(x,y);	
-		bullets.push_back(tankIterator->Fire());
-				}
-	else
-		{
-		if(drawEngine.charCompare(x,y,(char)1))
-		 drawEngine.clearAt(x,y);
-				}
- }
-void CGame::bulletFlight()
- { 
-    int x,y; 
-	bulletIterator->lookAt(bulletIterator->getDirection(),x,y);
-	if (drawEngine.IsEmptyAt(x,y)) 
-		{
-		drawEngine.putBullet(x,y);
-		bulletIterator->lookAt(4,x,y);
-	    drawEngine.clearAt(x,y);
-		bulletIterator->moveTo(bulletIterator->getDirection());
-		bulletIterator++;
-		}
-	else
-		{	
-		findTarget(x,y);
-		bulletIterator->lookAt(4,x,y);
-	    drawEngine.clearAt(x,y);		
-		bulletIterator= bullets.erase(bulletIterator);
-		}
-}
- 
-  void CGame:: findTarget(int x,int y)
- {  
-	 int a,b;
-	 if(drawEngine.charCompare(x,y,(char)3))
-		 gameOver();
-	 if(drawEngine.charCompare(x,y,(char)1))
-		 drawEngine.clearAt(x,y);
-	 for(tankIterator=tanks.begin();tankIterator!=tanks.end();tankIterator++)
-		{
-			tankIterator->lookAt(4,a,b);
-			if (x==a&&y==b)
-			   	{
-			      	if (bulletIterator->getFrom()==1)
-					{
-					score++;
-					drawEngine.clearAt(x,y);	
-					if (score==5) victory();
-					}
-                		   tankIterator->getHit(bulletIterator->getFrom());									 
-					 }	 
-		}			 
- }   
- 
