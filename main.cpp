@@ -1,7 +1,12 @@
 #include <iostream>
-#include "Game.h"
-int main() {
-	CGame game;
-	game.run();
-	return 0;
+#include <memory>
+#include <ctime>
+#include <list>
+#include "UserInterface.h"
+
+using namespace std;
+
+int main(int argc, char** argv) {
+	UserInterface facade;
+	facade.createInteface();
 }

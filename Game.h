@@ -1,34 +1,33 @@
 #ifndef GAME_H
 #define GAME_H
-#include <vector>
-#include <iostream>
-#include "Bullet.h"
-#include "Tank.h"
-#include "DrawEngine.h"
 
-class CGame
-{
+
+#include <list>
+#include <vector>
+#include <ctime>
+#include <algorithm>
+#include "GameObject.h"
+#include "ObjectFactory.h"
+#include "EnumDirections.h"
+
+class Game {
 public:
-	CGame();
+	Game(int maxScore);
 	void run();
 private:
-	CDrawEngine drawEngine;
+	void endGame(bool status);
+	void gameUpdate();
+	void findTarget(Location location);
+	std::vector<std::shared_ptr<GameObject>> tanks;
+	std::vector<std::shared_ptr<GameObject>> walls;
+	std::list<std::shared_ptr<GameObject>> bullets;
+	std::shared_ptr<GameObject> gold;
+	ObjectFactory factory;
+	int _maxScore;
+	int score;
 	double startTime;
 	double lastTime;
-	std::vector <CBullet> bullets;
-	std::vector <CBullet> ::iterator bulletIterator; 
-	std::vector <CTank> tanks;
-	std::vector <CTank>::iterator tankIterator;
-	void gameOver();
-	void victory();
-	void gameUpdate();
-	void createTanks();
-	void enemyTurn();
-	void playerTurn();
-	void bulletFlight();
-	void tankMove(int direction);
-	void tankFire();
-	void findTarget(int x,int y);
-	int score;
+	bool notGameEnd;
 };
-#endif
+
+#endif // !GAME_H
