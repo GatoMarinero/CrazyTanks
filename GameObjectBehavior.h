@@ -11,6 +11,7 @@ class GameObject;
 class GameObjectBehavior {
 public:
 	virtual Location act(GameObject* owner) = 0;
+	virtual ~GameObjectBehavior(){};
 };
 
 #endif
